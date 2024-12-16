@@ -1,4 +1,4 @@
-name: Build macOS Executable
+name: Build macOS Executable BETA
 
 on: 
   push:
