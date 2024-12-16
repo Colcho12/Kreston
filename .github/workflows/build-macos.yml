@@ -16,19 +16,19 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'  # Use the desired Python version
+          python-version: '3.11'
 
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller  # Install PyInstaller for building executables
-          
+          pip install pyinstaller
+
       - name: Build Executable
         run: |
-          pyinstaller --onefile --noconsole intento1.py  # Replace with your script name
+          pyinstaller --onefile --noconsole intento1.py  # Replace 'intento1.py' with your script name
 
       - name: Upload Executable
         uses: actions/upload-artifact@v3
         with:
           name: macos-executable
-          path: dist/intento1.py  # Replace with the correct file name
+          path: dist/intento1  # Path to the generated executable
