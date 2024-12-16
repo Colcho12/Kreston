@@ -25,10 +25,10 @@ jobs:
           
       - name: Build Executable
         run: |
-          pyinstaller --onefile --noconsole your_script_name.py  # Replace with your script name
+          pyinstaller --onefile --noconsole intento1.py  # Replace with your script name
 
       - name: Upload Executable
         uses: actions/upload-artifact@v3
         with:
           name: macos-executable
-          path: dist/your_script_name  # Replace with the correct file name
+          path: dist/intento1.py  # Replace with the correct file name
