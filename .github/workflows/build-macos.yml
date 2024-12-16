@@ -28,7 +28,7 @@ jobs:
           pyinstaller --onefile --noconsole intento1.py  # Replace 'intento1.py' with your script name
 
       - name: Upload Executable
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: macos-executable
           path: dist/intento1  # Path to the generated executable
