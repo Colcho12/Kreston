@@ -25,10 +25,10 @@ jobs:
 
       - name: Build Windows Executable
         run: |
-          pyinstaller --onefile --windowed --hidden-import pandas --hidden-import openpyxl app.py
+          pyinstaller --onefile --noconsole --hidden-import pandas --hidden-import openpyxl intento1.py
 
       - name: Upload Executable
         uses: actions/upload-artifact@v3
         with:
           name: windows-executable
-          path: dist/estadoscuenta.exe  # Path to the generated executable
+          path: dist/intento1.exe  # Path to the generated executable
