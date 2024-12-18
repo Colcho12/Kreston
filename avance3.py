@@ -144,6 +144,9 @@ def FifthSearch(estado, auxbanco, max_days=10):
     Search for rows in Auxiliar de Banco (targets) that match consecutive sums
     in Estado de Cuenta (candidates) within a date range.
     """
+
+    unmatched_rows = estado[estado["DOCUMENT NUMBER"].isna()]
+    print(f"Number of unmatched rows before FifthSearch: {unmatched_rows.shape[0]}")
     unmatched_aux_rows = auxbanco[~auxbanco["Used"]]
     print(f"Number of unmatched targets before FifthSearch: {unmatched_aux_rows.shape[0]}")
 
@@ -178,6 +181,8 @@ def FifthSearch(estado, auxbanco, max_days=10):
             auxbanco.at[aux_index, "Used"] = True
 
     print(f"Number of unmatched targets after FifthSearch: {auxbanco[~auxbanco['Used']].shape[0]}")
+    print(f"Number of unmatched rows after FourthSearch: {estado['DOCUMENT NUMBER'].isna().sum()}")
+
     return estado
 
 def MatchFechasMontos(estado_og, auxbanco_og):
