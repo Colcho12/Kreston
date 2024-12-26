@@ -97,6 +97,9 @@ from collections import defaultdict
 import re
 from collections import defaultdict
 
+import re
+from collections import defaultdict
+
 def txt_manipulate(file_path):
     # Initialize storage
     documents = defaultdict(dict)
@@ -121,30 +124,30 @@ def txt_manipulate(file_path):
         amounts_buffer = []
         ready_for_items = False
         is_first_item = True
-        entry_date_found = False  # Flag to track Entry Date detection
-        skip_next_line = False  # New flag to skip the next line after "Entry Date"
-
+        entry_date_found = False  # Flag for Entry Date detection
+        skip_next_line = False  # Flag to skip the "Crcy" line
+        
         for line in file:
             line = line.strip()
             
-            # Inside the main parsing loop
-            if 'Entry Date' in line:
-                print('yes')
+            # Detect 'Entry Date' in the document header
+            if 'Entry Date' in line and current_doc is None:
                 entry_date_found = True
-                skip_next_line = True  # Skip the next line explicitly
+                skip_next_line = True  # Skip the next "Crcy" line
                 continue
-
-            # Skip the "Crcy" line
+            
+            # Skip the "Crcy" line explicitly
             if skip_next_line:
                 skip_next_line = False  # Reset flag and proceed to the next line
                 continue
-
+            
             # Capture the Entry Date on the next valid line
             if entry_date_found:
                 date_match = date_pattern.search(line)
                 if date_match:
                     current_entry_date = date_match.group(1)
-                    entry_date_found = False  # Reset flag after capturing Entry Date
+                    entry_date_found = False  # Reset the flag
+            
             # Check for Posting Date
             date_match = date_pattern.search(line)
             if date_match and not ready_for_items:
@@ -174,7 +177,7 @@ def txt_manipulate(file_path):
                 amounts_buffer.clear()
                 current_reference = None
                 current_type = None
-                current_entry_date = None
+                current_entry_date = None  # Reset after assignment
                 ready_for_items = True
                 is_first_item = True
                 continue
