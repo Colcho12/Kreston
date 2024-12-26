@@ -91,15 +91,6 @@ def export(documents):
     print(f"Data successfully exported to {output_file}")
 
 file_path = 'Diarios 2018-2.txt'
-import re
-from collections import defaultdict
-
-import re
-from collections import defaultdict
-
-import re
-from collections import defaultdict
-
 def txt_manipulate(file_path):
     # Initialize storage
     documents = defaultdict(dict)
@@ -113,6 +104,7 @@ def txt_manipulate(file_path):
     account_pattern = re.compile(r'(\d{7,8})')  # Match Account Number
     dc_pattern = re.compile(r'\b[HS]\b')  # Match D/C Indicator
     amount_pattern = re.compile(r'(-?[\d,]+\.\d{2})')  # Match monetary amounts
+    user_name_pattern = re.compile(r'\b[A-Z_]+\b')
 
     # Read file
     with open(file_path, 'r', encoding='ISO-8859-1') as file:
@@ -124,29 +116,17 @@ def txt_manipulate(file_path):
         amounts_buffer = []
         ready_for_items = False
         is_first_item = True
-        entry_date_found = False  # Flag for Entry Date detection
-        skip_next_line = False  # Flag to skip the "Crcy" line
         
         for line in file:
             line = line.strip()
             
-            # Detect 'Entry Date' in the document header
-            if 'Entry Date' in line and current_doc is None:
-                entry_date_found = True
-                skip_next_line = True  # Skip the next "Crcy" line
-                continue
-            
-            # Skip the "Crcy" line explicitly
-            if skip_next_line:
-                skip_next_line = False  # Reset flag and proceed to the next line
-                continue
-            
-            # Capture the Entry Date on the next valid line
-            if entry_date_found:
-                date_match = date_pattern.search(line)
+            # Extract Entry Date using User Name as anchor
+            user_name_match = user_name_pattern.search(line)
+            if user_name_match:
+                # Look for Entry Date to the left of User Name
+                date_match = date_pattern.search(line[:user_name_match.start()])
                 if date_match:
                     current_entry_date = date_match.group(1)
-                    entry_date_found = False  # Reset the flag
             
             # Check for Posting Date
             date_match = date_pattern.search(line)
