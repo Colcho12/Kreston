@@ -85,30 +85,39 @@ def ThirdSearch(estado, auxbanco):
 ## ABSOLUTE VALUE
 def FourthSearch(estado, auxbanco):
     """
-    Perform a search for unmatched rows where:
-    - The absolute amount in "Estado de Cuenta" matches the auxiliary amount.
-    - The sign is flipped (e.g., positive -> negative or vice versa).
+    Verifica si arriba o abajo hay una fila con el mismo monto (signo opuesto) y misma fecha.
+    Si se cumple, asigna el mismo DOCUMENT NUMBER a la fila actual.
     """
-    # Identify rows where DOCUMENT NUMBER is still NA
     unmatched_rows = estado[estado["DOCUMENT NUMBER"].isna()]
-    print(f"Number of unmatched rows before FourthSearch: {unmatched_rows.shape[0]}")  # Debugging
+    print(f"Number of unmatched rows before FourthSearch: {unmatched_rows.shape[0]}")
 
     for index, row in unmatched_rows.iterrows():
-        match = auxbanco[
-            (auxbanco["Amount in doc. curr."] == -row["Amount"]) &  # Flip the sign
-            (~auxbanco["Used"])  # Ensure the row is not already used
-        ].head(1)
+        # Verificar fila anterior (arriba)
+        prev_index = index - 1
+        if prev_index in estado.index:
+            prev_row = estado.loc[prev_index]
+            if (
+                prev_row["FECHA"] == row["FECHA"] and  
+                prev_row["Amount"] == -row["Amount"] and  # Signo opuesto
+                pd.notna(prev_row["DOCUMENT NUMBER"])  
+            ):
+                estado.loc[index, "DOCUMENT NUMBER"] = prev_row["DOCUMENT NUMBER"]
+                continue  # Pasar a la siguiente fila después de asignar
 
-        if not match.empty:
-            document_number = match["Document Number"].iloc[0]
-            auxbanco.loc[match.index, "Used"] = True
-            estado.loc[index, "DOCUMENT NUMBER"] = document_number
-        else:
-            # Leave as NA if no match is found
-            estado.loc[index, "DOCUMENT NUMBER"] = None
+        # Verificar fila siguiente (abajo)
+        next_index = index + 1
+        if next_index in estado.index:
+            next_row = estado.loc[next_index]
+            if (
+                next_row["FECHA"] == row["FECHA"] and 
+                next_row["Amount"] == -row["Amount"] and  # Signo opuesto
+                pd.notna(next_row["DOCUMENT NUMBER"])  
+            ):
+                estado.loc[index, "DOCUMENT NUMBER"] = next_row["DOCUMENT NUMBER"]
 
     print(f"Number of unmatched rows after FourthSearch: {estado['DOCUMENT NUMBER'].isna().sum()}")
     return estado
+
 
 from datetime import timedelta
 
@@ -181,15 +190,74 @@ def FifthSearch(estado, auxbanco, max_days=10):
             auxbanco.at[aux_index, "Used"] = True
 
     print(f"Number of unmatched targets after FifthSearch: {auxbanco[~auxbanco['Used']].shape[0]}")
-    print(f"Number of unmatched rows after FourthSearch: {estado['DOCUMENT NUMBER'].isna().sum()}")
+    print(f"Number of unmatched rows after FifthSearch: {estado['DOCUMENT NUMBER'].isna().sum()}")
 
     return estado
 
+
+def SixthSearch(estado, auxbanco, tolerance=1, max_comb_size=20, max_iterations=1000):
+    """
+    1. Agrupa filas consecutivas con la misma DESCRIPCION y FECHA.
+    2. Busca combinaciones de montos que sumen un valor objetivo con tolerancia.
+    """
+    unmatched_rows = estado[estado["DOCUMENT NUMBER"].isna()]
+    aux_unmatched = auxbanco[(~auxbanco["Used"]) & (auxbanco["Amount in doc. curr."].abs() > 0.01)]
+
+    print(f"Unmatched rows before SixthSearch: {len(unmatched_rows)}")
+    print(f"Unmatched targets before SixthSearch: {len(aux_unmatched)}")
+
+    # Agrupar por DESCRIPCION
+    groups = ((unmatched_rows["DESCRIPCIÓN"] != unmatched_rows["DESCRIPCIÓN"].shift())).cumsum()
+    grouped_rows = unmatched_rows.groupby(groups)
+
+    iteration_count = 0 
+
+    for group_id, group in grouped_rows:
+        descripcion = group["DESCRIPCIÓN"].iloc[0]
+        fecha = group["FECHA"].iloc[0]
+        amounts = group["Amount"].tolist()
+        indices = group.index.tolist()
+
+        for aux_index, aux_row in aux_unmatched.iterrows():
+            target_amount = aux_row["Amount in doc. curr."]
+            document_number = aux_row["Document Number"]
+
+            # Probar combinaciones de tamaño 1 hasta max_comb_size
+            for r in range(1, min(len(amounts), max_comb_size) + 1):
+                for subset in combinations(range(len(amounts)), r):
+                    iteration_count += 1
+                    if iteration_count >= max_iterations:
+                        print(f"Search paused after {iteration_count} iterations.")
+                        return estado  # Devuelve el estado hasta el punto actual
+
+                    subset_sum = sum(amounts[i] for i in subset)
+                    if abs(subset_sum - target_amount) <= tolerance:
+                        matched_indices = [indices[i] for i in subset]
+
+                        # Asignar el DOCUMENT NUMBER
+                        estado.loc[matched_indices, "DOCUMENT NUMBER"] = document_number
+                        auxbanco.loc[aux_index, "Used"] = True
+                        print(f"Asignado {document_number} a filas {matched_indices} "
+                              f"con suma {subset_sum} (target: {target_amount}, tol: {tolerance}).")
+
+                        # Eliminar filas asignadas del grupo
+                        for i in sorted(subset, reverse=True):
+                            amounts.pop(i)
+                            indices.pop(i)
+                        break
+                else:
+                    continue
+                break
+
+    print(f"Unmatched rows after SixthSearch: {estado['DOCUMENT NUMBER'].isna().sum()}")
+    return estado
+
+
+
+
 def MatchFechasMontos(estado_og, auxbanco_og):
-
     # LIMPIEZA DE DATOS
-    estado,auxbanco = Cleaning(estado_og,auxbanco_og)
-
+    estado, auxbanco = Cleaning(estado_og, auxbanco_og)
     auxbanco = auxbanco.copy()
     auxbanco["Used"] = False 
 
@@ -197,8 +265,9 @@ def MatchFechasMontos(estado_og, auxbanco_og):
     estadodos = SecondSearch(estadouno, auxbanco)
     estadotres = ThirdSearch(estadodos, auxbanco)
     estadocuatro = FourthSearch(estadotres, auxbanco)
-    estadofinal = FifthSearch(estadocuatro, auxbanco)  # Sum search (final)
-
+    estadocinco = FifthSearch(estadocuatro, auxbanco)
+    estadofinal = SixthSearch(estadocinco, auxbanco)
+    
     return estadofinal
 
 
@@ -208,6 +277,6 @@ def main():
 
     #2. SE CONSTRUYE ESTADO DE CUENTA
     updated_estado = MatchFechasMontos(estadocrudo, auxbancocrudo)
-    #updated_estado.to_excel("updated_estado_de_cuenta_goat.xlsx", index=False, sheet_name="Updated Estado")
+    updated_estado.to_excel("updated_estado_de_cuenta_goat.xlsx", index=False, sheet_name="Updated Estado")
     print("File successfully saved as 'updated_estado_de_cuenta.xlsx'")
 main()
